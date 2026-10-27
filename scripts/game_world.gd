@@ -126,7 +126,7 @@ func _spawn(dt: float) -> void:
 func spawn_customer() -> void:
 	var c = CustomerScene.instantiate()
 	actors.add_child(c)
-	c.setup(self, Data.pick_type(Game.reputation), next_uid)
+	c.setup(self, Data.pick_type(Game.reputation, Game.campaign_target()), next_uid)
 	next_uid += 1
 	c.position = Data.cell_center(Data.SPAWN_CELL) + Vector2(randf_range(-30, 30), 20)
 	customers.append(c)
@@ -181,7 +181,7 @@ func remove_litter(l) -> void:
 
 # --- Staff --------------------------------------------------------------------------------
 func sync_staff() -> void:
-	for role in ["cashier", "server", "cleaner"]:
+	for role in ["cashier", "server", "cleaner", "technician"]:
 		var want: int = Upgrades.staff_count(role)
 		var have: Array = staff_nodes.filter(func(s): return s.role == role)
 		while have.size() < want:

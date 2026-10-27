@@ -37,7 +37,7 @@ func take(id: String, n: int = 1) -> bool:
 	return true
 
 func restock_cost(id: String, batches: int = 1) -> int:
-	return int(Data.FOOD[id].batch) * int(Data.FOOD[id].cost) * batches
+	return int(round(int(Data.FOOD[id].batch) * int(Data.FOOD[id].cost) * batches * Game.event_food_mult()))
 
 func restock(id: String, batches: int = 1) -> String:
 	if not unlocked(id):

@@ -120,7 +120,7 @@ func _build_toolbar() -> void:
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	pc.add_child(h)
 	for e in [["Build", "build"], ["Upgrades", "upgrades"], ["Staff", "staff"], ["Food", "food"],
-			["Screenings", "shows"], ["Finance", "finance"], ["Overview", "overview"]]:
+			["Screenings", "shows"], ["Marketing", "marketing"], ["Finance", "finance"], ["Overview", "overview"]]:
 		var b := K.button(e[0], open_screen.bind(e[1]), 0, 58)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(b)
@@ -176,7 +176,7 @@ func _refresh_screen() -> void:
 	var keep := scroll.scroll_vertical
 	K.clear(content)
 	var titles := {"build": "Build & Decorate", "upgrades": "Upgrade Shop", "staff": "Employees", "food": "Food Inventory",
-		"shows": "Screening Schedule", "finance": "Financial Report", "overview": "Cinema Overview",
+		"shows": "Screening Schedule", "marketing": "Marketing & Events", "finance": "Financial Report", "overview": "Cinema Overview",
 		"achievements": "Achievements", "settings": "Settings", "menu": "Paused", "summary": "Day Summary"}
 	title_lbl.text = titles.get(screen, "")
 	call("_screen_" + screen, content)
@@ -420,6 +420,33 @@ func _screen_overview(vb: Control) -> void:
 				txt += "  |  %s  |  %s" % [Data.movie(sh.movie).title, Screenings.status_text(sh)]
 		vb.add_child(K.label(txt, 20, Color(0.85, 0.88, 1.0), true))
 	vb.add_child(K.button("Achievements", open_screen.bind("achievements"), 0, 56))
+
+func _screen_marketing(vb: Control) -> void:
+	var ev: Dictionary = Game.event_def()
+	if ev.is_empty():
+		_card(vb, "Today's business", "No special events today.", [])
+	else:
+		_card(vb, "Today: %s" % ev.name, ev.desc, [], Color(1, 0.85, 0.4))
+	if Game.campaign.is_empty():
+		vb.add_child(K.label("No campaign running. One campaign can run at a time.", 21, Color(0.75, 0.78, 0.9), true))
+	else:
+		var cd: Dictionary = Game.campaign_def()
+		vb.add_child(K.label("Running: %s - %d day(s) left, +%d%% guest demand" % [cd.name, int(Game.campaign.left), int(round(Game.campaign_boost() * 100))], 22, Color(0.6, 0.9, 1.0), true))
+	_head(vb, "Campaigns")
+	for c in Data.CAMPAIGNS:
+		var why: String = Game.campaign_check(c.id)
+		var d := "%s\nRuns %d day(s), +%d%% guest demand." % [c.desc, c.days, int(round(float(c.boost) * 100))]
+		if why != "":
+			d += "\n" + why
+		_card(vb, c.name, d, [[Data.money(c.cost), _start_campaign.bind(c.id), why != ""]])
+	vb.add_child(K.label("Events happen on some days, with a clear warning. A technician halves repair bills.", 18, Color(0.7, 0.75, 0.9), true))
+
+func _start_campaign(id: String) -> void:
+	var why: String = Game.campaign_check(id)
+	if why != "":
+		_msg(why, false)
+	elif Game.start_campaign(id):
+		_msg("Campaign launched")
 
 func _screen_achievements(vb: Control) -> void:
 	for a in Data.ACHIEVEMENTS:

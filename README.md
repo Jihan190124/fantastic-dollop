@@ -1,4 +1,6 @@
-# Cinema Tycoon: Theatre Empire
+# Cinema Tycoon: Theatre Empire  (v2.0.0)
+
+See **CHANGELOG.md** for everything new in 2.0 and the list of what is still missing.
 
 An offline Android cinema-management simulation made with **Godot 4.3 (GDScript)**.
 Start with a neglected single-screen cinema (cash ₹10,000) and grow it into a luxury multiplex.
@@ -59,10 +61,16 @@ Saves are JSON in `user://cinema_save.json` (with backup + atomic write).
 - Achievements with cash rewards; autosave at end of day and when the app is paused; safe handling of corrupt saves.
 - Touch controls (pan, pinch zoom, tap-select), clamped camera, guest cap setting for performance.
 
+## Credits
+Designed, programmed and built solo by **Jihan Bhagat**.
+Made with Godot 4 and GDScript. All graphics are drawn procedurally; all movie titles are fictional.
+
 ## Known limitations
 - No APK was compiled in the authoring environment (no Android SDK access); build with the steps above.
 - Not tested on a real Android device. The simulation was tested headless on desktop Godot 4.3, and UI screens were
   rendered under software OpenGL. Touch/pinch handling, performance on phones and the APK install are untested.
 - No sound or music. Graphics are simple procedural 2D shapes (angled top-down, not true isometric).
 - Loading a save mid-day starts a fresh crowd: guests inside at save time are not stored (tickets already sold stay paid).
-- Seats are upgraded globally (all halls share one seat/projector/audio level).
+- Seats, projector and audio are upgraded globally (all halls share one level).
+- Expandable land, a multiplex beyond 3 halls and a visible map expansion are not in 2.0 yet (see CHANGELOG).
+- Balance has been checked by simulation only. It needs real playtesting before it is tuned.

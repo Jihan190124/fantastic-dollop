@@ -4,6 +4,8 @@ extends Node
 const PATH := "user://cinema_save.json"
 const TMP := "user://cinema_save.tmp"
 const BAK := "user://cinema_save.bak"
+## Copy of the untouched version 1 save, made once before the first migration.
+const V1_ARCHIVE := "user://cinema_save_v1_archive.json"
 
 func has_save() -> bool:
 	return not peek().is_empty()
@@ -57,7 +59,28 @@ func load_game() -> bool:
 	var d := peek()
 	if d.is_empty():
 		return false
+	if int(d.get("version", 1)) < Data.SAVE_VERSION and FileAccess.file_exists(PATH) and not FileAccess.file_exists(V1_ARCHIVE):
+		DirAccess.copy_absolute(PATH, V1_ARCHIVE)
+	d = migrate(d)
 	return Game.load_from(d)
+
+## Upgrades an older save in memory. Nothing is written until the next autosave,
+## and the first migration keeps an untouched archive copy.
+## v1 -> v2: tier lists were extended, so old level numbers are remapped to the same tier.
+func migrate(d: Dictionary) -> Dictionary:
+	var v := int(d.get("version", 1))
+	if v >= Data.SAVE_VERSION:
+		return d
+	var up := Data.as_dict(d.get("upgrades"))
+	var lv := Data.as_dict(up.get("levels"))
+	var maps := {"seats": [0, 1, 3, 5], "projector": [0, 1, 3, 5], "audio": [0, 2, 4]}
+	for t in maps:
+		var m: Array = maps[t]
+		lv[t] = int(m[clampi(int(lv.get(t, 0)), 0, m.size() - 1)])
+	up["levels"] = lv
+	d["upgrades"] = up
+	d["version"] = Data.SAVE_VERSION
+	return d
 
 func delete_save() -> void:
 	for p in [PATH, BAK, TMP]:

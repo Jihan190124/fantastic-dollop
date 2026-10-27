@@ -1,8 +1,8 @@
 extends Node
 ## Central, data-driven configuration. Rebalance the game by editing the values below.
 
-const VERSION := "1.0.0"
-const SAVE_VERSION := 1
+const VERSION := "2.0.0"
+const SAVE_VERSION := 2
 const CELL := 40
 const GRID_W := 40
 const GRID_H := 28
@@ -79,6 +79,11 @@ const MOVIES := [
 	{"id": "cricket_fever", "title": "Cricket Fever", "genre": "Drama", "pop": 0.75, "dur": 120, "quality": 0.80, "min_rep": 25},
 	{"id": "masala_mansion", "title": "Mystery of Masala Mansion", "genre": "Thriller", "pop": 0.55, "dur": 95, "quality": 0.70, "min_rep": 40},
 	{"id": "tiger_squad_returns", "title": "Tiger Squad Returns", "genre": "Action", "pop": 0.95, "dur": 130, "quality": 0.90, "min_rep": 55},
+	{"id": "monsoon_diaries", "title": "Monsoon Diaries", "genre": "Documentary", "pop": 0.45, "dur": 90, "quality": 0.75, "min_rep": 0},
+	{"id": "pocket_dragons", "title": "Pocket Dragons", "genre": "Family", "pop": 0.65, "dur": 96, "quality": 0.70, "min_rep": 5},
+	{"id": "midnight_mandi", "title": "Midnight Mandi", "genre": "Horror", "pop": 0.72, "dur": 101, "quality": 0.72, "min_rep": 30},
+	{"id": "letters_from_ladakh", "title": "Letters from Ladakh", "genre": "Drama", "pop": 0.58, "dur": 110, "quality": 0.85, "min_rep": 35},
+	{"id": "raj_mahal_heist", "title": "The Raj Mahal Heist", "genre": "Action", "pop": 0.80, "dur": 122, "quality": 0.82, "min_rep": 45},
 ]
 
 # --- Customers ---------------------------------------------------------------------
@@ -86,8 +91,8 @@ const MOVIES := [
 const CUSTOMER_TYPES := {
 	"budget": {"name": "Budget visitor", "color": Color(0.45, 0.72, 0.95), "weight": 0.30, "budget": [200, 380], "party": [1, 1], "food": 0.35, "patience": 35.0, "genres": [], "w": [0.10, 0.12, 0.30, 0.12, 0.06, 0.08, 0.06, 0.04, 0.12]},
 	"student": {"name": "Student", "color": Color(0.6, 0.85, 0.4), "weight": 0.25, "budget": [250, 500], "party": [1, 2], "food": 0.55, "patience": 40.0, "genres": ["Horror", "Sci-Fi", "Action"], "w": [0.10, 0.08, 0.24, 0.10, 0.10, 0.10, 0.10, 0.08, 0.10]},
-	"family": {"name": "Family", "color": Color(0.98, 0.7, 0.35), "weight": 0.20, "budget": [900, 1600], "party": [2, 4], "food": 0.9, "patience": 30.0, "genres": ["Animation", "Comedy"], "w": [0.16, 0.18, 0.10, 0.12, 0.14, 0.06, 0.06, 0.10, 0.08]},
-	"premium": {"name": "Premium guest", "color": Color(0.85, 0.5, 0.95), "weight": 0.10, "budget": [1200, 3000], "party": [1, 2], "food": 0.8, "patience": 22.0, "genres": ["Drama", "Thriller", "Romance"], "w": [0.22, 0.16, 0.04, 0.10, 0.10, 0.12, 0.12, 0.12, 0.04]},
+	"family": {"name": "Family", "color": Color(0.98, 0.7, 0.35), "weight": 0.20, "budget": [900, 1600], "party": [2, 4], "food": 0.9, "patience": 30.0, "genres": ["Animation", "Comedy", "Family"], "w": [0.16, 0.18, 0.10, 0.12, 0.14, 0.06, 0.06, 0.10, 0.08]},
+	"premium": {"name": "Premium guest", "color": Color(0.85, 0.5, 0.95), "weight": 0.10, "budget": [1200, 3000], "party": [1, 2], "food": 0.8, "patience": 22.0, "genres": ["Drama", "Thriller", "Romance", "Documentary"], "w": [0.22, 0.16, 0.04, 0.10, 0.10, 0.12, 0.12, 0.12, 0.04]},
 	"enthusiast": {"name": "Movie enthusiast", "color": Color(0.95, 0.45, 0.5), "weight": 0.15, "budget": [500, 1100], "party": [1, 1], "food": 0.4, "patience": 45.0, "genres": ["Sci-Fi", "Action"], "w": [0.08, 0.06, 0.08, 0.08, 0.04, 0.24, 0.22, 0.04, 0.16]},
 }
 
@@ -95,30 +100,39 @@ const CUSTOMER_TYPES := {
 const TRACK_ORDER := ["seats", "projector", "audio", "lobby", "food", "training"]
 const TRACKS := {
 	"seats": {"name": "Seating", "levels": [
-		{"name": "Plastic chairs", "cost": 0, "q": 0.25, "rep": 0, "desc": "Hard and wobbly."},
-		{"name": "Upholstered seats", "cost": 500, "q": 0.55, "rep": 0, "desc": "Padded seats - clearly more comfortable."},
-		{"name": "Recliners", "cost": 4500, "q": 0.80, "rep": 20, "desc": "Reclining seats guests love."},
-		{"name": "VIP seating", "cost": 14000, "q": 1.0, "rep": 45, "desc": "Leather loungers with side tables."}]},
+		{"name": "Plastic chairs", "cost": 0, "q": 0.25, "rep": 0, "maint": 0, "look": 0, "desc": "Hard and wobbly."},
+		{"name": "Upholstered seats", "cost": 500, "q": 0.55, "rep": 0, "maint": 30, "look": 1, "desc": "Padded seats - clearly more comfortable."},
+		{"name": "Premium upholstered", "cost": 2500, "q": 0.66, "rep": 10, "maint": 60, "look": 2, "desc": "Thick padding and extra leg room."},
+		{"name": "Recliners", "cost": 4500, "q": 0.80, "rep": 20, "maint": 90, "look": 3, "desc": "Reclining seats guests love."},
+		{"name": "Double-seat sofas", "cost": 8000, "q": 0.87, "rep": 30, "maint": 110, "look": 4, "desc": "Sofa seats for couples. Guests love sharing a row."},
+		{"name": "VIP lounge seats", "cost": 14000, "q": 0.93, "rep": 45, "maint": 90, "look": 5, "desc": "Leather loungers with side tables."},
+		{"name": "Executive recliners", "cost": 22000, "q": 0.97, "rep": 60, "maint": 150, "look": 6, "desc": "Massage recliners with reading lamps.", "req": {"halls": 2}},
+		{"name": "Ultra-luxury private seats", "cost": 45000, "q": 1.0, "rep": 80, "maint": 220, "look": 7, "desc": "Private pods with a call button for service.", "req": {"halls": 3}}]},
 	"projector": {"name": "Projection", "levels": [
-		{"name": "Basic projector", "cost": 0, "q": 0.30, "rep": 0, "desc": "Dim and fuzzy."},
-		{"name": "HD projector", "cost": 3000, "q": 0.55, "rep": 0, "desc": "Sharp HD picture, bigger screen."},
-		{"name": "4K projector", "cost": 9000, "q": 0.80, "rep": 25, "desc": "Crisp 4K picture."},
-		{"name": "Premium large-format screen", "cost": 24000, "q": 1.0, "rep": 50, "desc": "A giant, curved premium screen."}]},
+		{"name": "Basic projector", "cost": 0, "q": 0.30, "rep": 0, "cells": 6, "frame": [0.3, 0.3, 0.3], "power": 0, "maint": 0, "desc": "Dim and fuzzy."},
+		{"name": "HD projector", "cost": 3000, "q": 0.55, "rep": 0, "cells": 7, "frame": [0.35, 0.4, 0.55], "power": 60, "maint": 0, "desc": "Sharp HD picture, bigger screen."},
+		{"name": "Full HD projector", "cost": 6000, "q": 0.66, "rep": 10, "cells": 8, "frame": [0.25, 0.45, 0.6], "power": 90, "maint": 10, "desc": "Full HD clarity with better contrast."},
+		{"name": "4K projector", "cost": 9000, "q": 0.80, "rep": 25, "cells": 9, "frame": [0.2, 0.3, 0.6], "power": 120, "maint": 25, "desc": "Crisp 4K picture."},
+		{"name": "Laser projector", "cost": 16000, "q": 0.88, "rep": 35, "cells": 10, "frame": [0.2, 0.6, 0.7], "power": 200, "maint": 20, "desc": "Brighter laser light and deeper contrast with lower upkeep than 4K."},
+		{"name": "Premium large-format screen", "cost": 24000, "q": 0.95, "rep": 50, "cells": 11, "frame": [0.85, 0.7, 0.3], "power": 300, "maint": 60, "req": {"halls": 2, "seats": 2}, "desc": "A giant curved screen. Needs two halls and premium upholstered seats."},
+		{"name": "Ultra-premium immersive", "cost": 40000, "q": 1.0, "rep": 70, "cells": 12, "frame": [0.9, 0.4, 0.9], "power": 420, "maint": 90, "req": {"halls": 3, "seats": 4}, "desc": "Advanced large-format laser. Needs three halls and double-seat sofas."}]},
 	"audio": {"name": "Audio", "levels": [
-		{"name": "Basic speakers", "cost": 0, "q": 0.30, "rep": 0, "desc": "Tinny stereo."},
-		{"name": "Surround sound", "cost": 2500, "q": 0.65, "rep": 0, "desc": "Surround speakers around the hall."},
-		{"name": "Premium cinema audio", "cost": 9000, "q": 1.0, "rep": 30, "desc": "Full premium audio with subwoofers."}]},
+		{"name": "Basic speakers", "cost": 0, "q": 0.30, "rep": 0, "spk": 2, "power": 0, "maint": 0, "desc": "Tinny stereo."},
+		{"name": "Improved stereo", "cost": 1200, "q": 0.45, "rep": 0, "spk": 3, "power": 30, "maint": 0, "desc": "Louder stereo with cleaner sound."},
+		{"name": "Surround sound", "cost": 2500, "q": 0.65, "rep": 0, "spk": 4, "power": 60, "maint": 0, "desc": "Surround speakers around the hall."},
+		{"name": "Advanced surround", "cost": 5000, "q": 0.82, "rep": 10, "spk": 5, "power": 90, "maint": 0, "desc": "A wider surround field and clearer dialogue."},
+		{"name": "Premium immersive audio", "cost": 9000, "q": 1.0, "rep": 30, "spk": 6, "power": 120, "maint": 0, "desc": "Full immersive audio with subwoofers."}]},
 	"lobby": {"name": "Lobby", "levels": [
-		{"name": "Dirty lobby", "cost": 0, "q": 0.45, "rep": 0, "desc": "Stained floors and peeling paint."},
-		{"name": "Clean lobby", "cost": 1500, "q": 0.70, "rep": 0, "desc": "Fresh paint and new tiles."},
-		{"name": "Modern lobby", "cost": 6000, "q": 0.88, "rep": 20, "desc": "Modern finishes and lighting."},
-		{"name": "Luxury lobby", "cost": 18000, "q": 1.0, "rep": 45, "desc": "Marble floors and gold trim."}]},
+		{"name": "Dirty lobby", "cost": 0, "q": 0.45, "rep": 0, "maint": 0, "desc": "Stained floors and peeling paint."},
+		{"name": "Clean lobby", "cost": 1500, "q": 0.70, "rep": 0, "maint": 30, "desc": "Fresh paint and new tiles."},
+		{"name": "Modern lobby", "cost": 6000, "q": 0.88, "rep": 20, "maint": 60, "desc": "Modern finishes and lighting."},
+		{"name": "Luxury lobby", "cost": 18000, "q": 1.0, "rep": 45, "maint": 90, "desc": "Marble floors and gold trim."}]},
 	"food": {"name": "Food", "levels": [
-		{"name": "No food stand", "cost": 0, "q": 0.0, "rep": 0, "desc": ""},
-		{"name": "Popcorn stand", "cost": 1500, "q": 1.0, "rep": 0, "desc": "Popcorn machine. Includes 20 free popcorn."},
-		{"name": "Drinks counter", "cost": 1800, "q": 2.0, "rep": 0, "desc": "Cold drinks. Includes 20 free drinks."},
-		{"name": "Snack counter", "cost": 4000, "q": 3.0, "rep": 10, "desc": "Nachos and snacks. Includes 20 free snacks."},
-		{"name": "Food court", "cost": 12000, "q": 4.0, "rep": 30, "desc": "Combo meals and dining tables."}]},
+		{"name": "No food stand", "cost": 0, "q": 0.0, "rep": 0, "maint": 0, "desc": ""},
+		{"name": "Popcorn stand", "cost": 1500, "q": 1.0, "rep": 0, "maint": 30, "desc": "Popcorn machine. Includes 20 free popcorn."},
+		{"name": "Drinks counter", "cost": 1800, "q": 2.0, "rep": 0, "maint": 60, "desc": "Cold drinks. Includes 20 free drinks."},
+		{"name": "Snack counter", "cost": 4000, "q": 3.0, "rep": 10, "maint": 90, "desc": "Nachos and snacks. Includes 20 free snacks."},
+		{"name": "Food court", "cost": 12000, "q": 4.0, "rep": 30, "maint": 120, "desc": "Combo meals and dining tables."}]},
 	"training": {"name": "Staff training", "levels": [
 		{"name": "Untrained staff", "cost": 0, "q": 1.0, "rep": 0, "desc": ""},
 		{"name": "Basic training", "cost": 2000, "q": 1.25, "rep": 0, "desc": "Staff serve 25% faster."},
@@ -138,6 +152,7 @@ const STAFF := {
 	"cashier": {"name": "Cashier", "wage": 400, "hire": 200, "max": 2, "min": 1, "desc": "Sells tickets. More cashiers = shorter ticket queues."},
 	"server": {"name": "Food server", "wage": 350, "hire": 200, "max": 2, "min": 0, "desc": "Serves the food counter. Required to sell food."},
 	"cleaner": {"name": "Cleaner", "wage": 300, "hire": 150, "max": 3, "min": 0, "desc": "Cleans litter (Rs 5 supplies each). Keeps the cinema clean."},
+	"technician": {"name": "Technician", "wage": 320, "hire": 300, "max": 1, "min": 0, "desc": "Repairs breakdowns at half the cost. Needs a Full HD projector."},
 }
 
 const DECOR := {
@@ -162,6 +177,32 @@ const ACHIEVEMENTS := [
 	{"id": "clean_90", "name": "Spotless", "desc": "End a day with cleanliness above 90%.", "reward": 800},
 	{"id": "cash_100k", "name": "Tycoon", "desc": "Hold 100,000 in cash.", "reward": 0},
 	{"id": "luxury", "name": "Luxury Complex", "desc": "Reach the Luxury Cinema Complex rank.", "reward": 5000},
+	{"id": "first_profit_day", "name": "In the Black", "desc": "End a day with a profit.", "reward": 600},
+	{"id": "first_campaign", "name": "Advertiser", "desc": "Launch your first marketing campaign.", "reward": 300},
+	{"id": "revenue_20k", "name": "Big Take", "desc": "Earn 20,000 in income in one day.", "reward": 3000},
+	{"id": "sat_90", "name": "Guest Favourite", "desc": "Average guest satisfaction above 90% in a day (10+ guests).", "reward": 2500},
+	{"id": "premium_projector", "name": "Premium Picture", "desc": "Install the premium large-format screen.", "reward": 4000},
+	{"id": "vip_seats", "name": "VIP Treatment", "desc": "Install VIP lounge seats.", "reward": 3000},
+	{"id": "survive_events", "name": "Unfazed", "desc": "Get through three business events.", "reward": 800},
+]
+
+# --- Marketing campaigns: one at a time, limited days, capped demand boost ---
+const CAMPAIGNS := [
+	{"id": "radio", "name": "Local radio ads", "cost": 1500, "days": 2, "boost": 0.20, "target": "", "min_halls": 1, "desc": "Brings extra guests from across the area."},
+	{"id": "posters", "name": "Posters and banners", "cost": 800, "days": 3, "boost": 0.12, "target": "", "min_halls": 1, "desc": "Cheap posters near the bus stop."},
+	{"id": "student", "name": "Student discount week", "cost": 600, "days": 2, "boost": 0.12, "target": "student", "min_halls": 1, "desc": "Draws students, who are much more likely to come in."},
+	{"id": "family", "name": "Family package", "cost": 1200, "days": 2, "boost": 0.12, "target": "family", "min_halls": 1, "desc": "Family ticket bundles. Families are much more likely to come in."},
+	{"id": "premium", "name": "Premium screening promo", "cost": 2500, "days": 2, "boost": 0.15, "target": "premium", "min_halls": 1, "desc": "Invitations for premium guests."},
+	{"id": "opening", "name": "Grand opening campaign", "cost": 2000, "days": 3, "boost": 0.30, "target": "", "min_halls": 2, "desc": "Launch campaign for a new screen. Needs two or more halls."},
+]
+
+# --- Daily business events: announced at the start of the day, never bankrupt you ---
+# demand / food are multipliers. "breakdown" is charged once when the day starts.
+const EVENTS := [
+	{"id": "breakdown", "name": "Projector breakdown", "desc": "A bulb blew overnight. Repairs are charged today (half price with a technician).", "cost": 900, "demand": 1.0, "food": 1.0},
+	{"id": "blockbuster", "name": "Word-of-mouth buzz", "desc": "Guests are talking about a film. Extra crowds today.", "cost": 0, "demand": 1.25, "food": 1.0},
+	{"id": "supply", "name": "Supply shortage", "desc": "Suppliers are short. Food restocking costs 50% more today.", "cost": 0, "demand": 1.0, "food": 1.5},
+	{"id": "quiet", "name": "Rainy afternoon", "desc": "Fewer people want to go out today.", "cost": 0, "demand": 0.85, "food": 1.0},
 ]
 
 var _movie_map := {}
@@ -286,7 +327,7 @@ func as_dict(v) -> Dictionary:
 func as_array(v) -> Array:
 	return v if typeof(v) == TYPE_ARRAY else []
 
-func pick_type(rep: float) -> String:
+func pick_type(rep: float, target: String = "") -> String:
 	var total := 0.0
 	var weights := {}
 	for id in CUSTOMER_TYPES:
@@ -295,6 +336,8 @@ func pick_type(rep: float) -> String:
 			w *= 0.3 + rep / 40.0
 		elif id == "budget":
 			w *= 1.4 - rep / 150.0
+		if id == target:
+			w *= 2.0
 		weights[id] = w
 		total += w
 	var r := randf() * total

@@ -94,7 +94,7 @@ func info_text() -> String:
 	return "%s\nWage: %s per day\nSpeed: x%.2f" % [Data.STAFF[role].name, Data.money(Data.STAFF[role].wage), Upgrades.staff_speed()]
 
 func _draw() -> void:
-	var col: Color = {"cashier": Color(0.2, 0.5, 0.9), "server": Color(0.9, 0.35, 0.3), "cleaner": Color(0.3, 0.75, 0.4)}[role]
+	var col: Color = {"cashier": Color(0.2, 0.5, 0.9), "server": Color(0.9, 0.35, 0.3), "cleaner": Color(0.3, 0.75, 0.4), "technician": Color(0.6, 0.4, 0.9)}.get(role, Color(0.7, 0.7, 0.7))
 	var by := 0.0
 	if not at_dest:
 		by = -absf(sin(bob)) * 2.5

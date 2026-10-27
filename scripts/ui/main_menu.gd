@@ -113,5 +113,5 @@ func _settings() -> void:
 
 func _credits() -> void:
 	_open_modal("Credits")
-	modal_body.add_child(K.label("Cinema Tycoon: Theatre Empire\nMade with Godot 4 and GDScript.\nAll graphics are drawn procedurally; all movie titles are fictional.\nNo internet, accounts or ads.", 22, Color.WHITE, true))
+	modal_body.add_child(K.label("Cinema Tycoon: Theatre Empire  v%s\n\nDesigned, programmed and built solo by\nJihan Bhagat\n\nMade with Godot 4 and GDScript.\nAll graphics are drawn procedurally; all movie titles are fictional.\nNo internet, accounts, ads or paid assets.\n\nThank you for playing!" % Data.VERSION, 22, Color.WHITE, true))
 	modal_body.add_child(K.button("Close", func(): modal.visible = false, 0, 60))

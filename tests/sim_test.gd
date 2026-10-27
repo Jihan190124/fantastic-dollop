@@ -64,12 +64,12 @@ func _ready() -> void:
 	check(Economy.cash == cash0 - 1500, "upgrade deducted 1,500")
 	check(Inventory.qty("popcorn") == 20, "starter popcorn stock granted")
 	check(Upgrades.hire("server"), "hire food server")
-	check(not Upgrades.hire("cleaner") or true, "hire cleaner")
+	check(Upgrades.hire("cleaner"), "hire cleaner")
 	Economy.earn(2000, "Test funding", "bonus")
 	check(Upgrades.buy("seats"), "buy upholstered seats")
 	check(Upgrades.level("seats") == 1, "seat level changed")
-	Upgrades.buy("lobby")
-	Upgrades.buy("projector")
+	check(Upgrades.buy("lobby"), "buy clean lobby")
+	check(Upgrades.buy("projector"), "buy HD projector")
 	Screenings.set_price(0, 110)
 	check(Screenings.halls[0].price == 110, "ticket price changed")
 	world.sync_staff()
@@ -138,6 +138,88 @@ func _ready() -> void:
 	Economy.cash = 100
 	check(not Upgrades.buy("projector"), "cannot buy beyond funds")
 	check(Economy.cash == 100, "failed purchase leaves balance unchanged")
+
+	# ---- v2 content ----
+	check(Data.VERSION == "2.0.0" and Data.SAVE_VERSION == 2, "version 2.0.0 / save v2")
+	check(Data.TRACKS.seats.levels.size() == 8, "eight seat types")
+	check(Data.TRACKS.projector.levels.size() == 7, "seven projector tiers")
+	check(Data.TRACKS.audio.levels.size() == 5, "five audio tiers")
+	check(Data.MOVIES.size() >= 14, "more fictional movies")
+	Economy.earn(400000, "Test funding", "bonus")
+	Game.reputation = 100.0
+
+	# projection tiers have real requirements
+	while Upgrades.level("projector") < 4:
+		check(Upgrades.buy("projector"), "projector tier %d" % (Upgrades.level("projector")))
+	check(Upgrades.check_buy("projector").begins_with("Needs"), "large-format blocked by seating")
+	check(Upgrades.buy("seats"), "seating upgrade (premium upholstered)")
+	check(Upgrades.buy("seats"), "seating upgrade (recliners)")
+	check(Upgrades.buy("projector"), "large-format screen after premium seats")
+	check(Upgrades.check_buy("projector").begins_with("Needs"), "ultra blocked: needs more seating and a third hall")
+	check(Upgrades.power_draw() > 0 and Upgrades.upkeep_total() > 0, "power and upkeep are charged per tier")
+
+	# technician needs a Full HD projector and halves repair bills
+	check(Upgrades.hire("technician"), "hire technician")
+	var cash_b := Economy.cash
+	Game._set_event("breakdown", true)
+	check(cash_b - Economy.cash == 450, "technician halves the breakdown bill")
+	Upgrades.fire("technician")
+	cash_b = Economy.cash
+	Game._set_event("breakdown", true)
+	check(cash_b - Economy.cash == 900, "breakdown costs full price without a technician")
+	Game._set_event("blockbuster", false)
+	check(absf(Game.event_demand_mult() - 1.25) < 0.001, "blockbuster raises demand")
+	Game._set_event("none", false)
+
+	# marketing: real demand boost, one at a time, limited days
+	check(Game.start_campaign("radio"), "launch radio campaign")
+	check(not Game.start_campaign("posters"), "only one campaign at a time")
+	var with_c := Game.arrival_rate()
+	var saved_c: Dictionary = Game.campaign
+	Game.campaign = {}
+	var without_c := Game.arrival_rate()
+	Game.campaign = saved_c
+	check(absf(with_c / without_c - 1.2) < 0.001, "radio campaign raises arrivals by 20 percent")
+	check(Game.campaign_target() == "", "radio has no target group")
+	run_days(2)
+	check(Game.campaign.is_empty(), "campaign expires after its days")
+
+	# achievements from the new content
+	Game.check_achievements()
+	check(Game.achievements.has("premium_projector"), "premium projector achievement")
+	check(Game.achievements.has("first_campaign"), "first campaign achievement")
+
+	# save v2 keeps campaign and event state
+	Game.campaign = {"id": "family", "left": 2}
+	Game._set_event("supply", false)
+	check(SaveSys.save_game(), "v2 save written")
+	Game.campaign = {}
+	Game._set_event("none", false)
+	check(SaveSys.load_game(), "v2 save loads")
+	check(str(Game.campaign.get("id", "")) == "family", "campaign restored from save")
+	check(Game.today_event == "supply", "today's event restored without charging again")
+
+	# migration: a version 1 save loads, keeps progress, and gets its tiers remapped
+	var v1 := {"version": 1, "saved_at": 0,
+		"economy": {"cash": 4321, "income_today": {}, "expense_today": {}, "income_total": 0, "expense_total": 0, "history": [], "ledger": []},
+		"upgrades": {"levels": {"seats": 2, "projector": 2, "audio": 1, "lobby": 1, "food": 1, "training": 0},
+			"decor": {}, "hall_state": ["built", "locked", "locked"], "build_left": {}, "staff": {"cashier": 1, "server": 1, "cleaner": 0}},
+		"inventory": {"stock": {}}, "screenings": {"halls": []},
+		"game": {"day": 5, "clock": 11.0, "reputation": 33.0, "litter": 2, "stats": {"tickets": 120}, "achievements": {"first_ticket": 1}}}
+	if FileAccess.file_exists(SaveSys.V1_ARCHIVE):
+		DirAccess.remove_absolute(SaveSys.V1_ARCHIVE)
+	var fv1 := FileAccess.open(SaveSys.PATH, FileAccess.WRITE)
+	fv1.store_string(JSON.stringify(v1))
+	fv1.close()
+	if FileAccess.file_exists(SaveSys.BAK):
+		DirAccess.remove_absolute(SaveSys.BAK)
+	check(SaveSys.load_game(), "version 1 save loads")
+	check(Economy.cash == 4321, "v1 cash kept")
+	check(Upgrades.level("seats") == 3 and Upgrades.level("projector") == 3 and Upgrades.level("audio") == 2, "v1 tiers remapped to the same tier")
+	check(Game.day == 5 and absf(Game.reputation - 33.0) < 0.01, "v1 day and reputation kept")
+	check(Game.achievements.has("first_ticket"), "v1 achievements kept")
+	check(FileAccess.file_exists(SaveSys.V1_ARCHIVE), "original v1 save archived before migration")
+	DirAccess.remove_absolute(SaveSys.V1_ARCHIVE)
 
 	SaveSys.delete_save()
 	print("RESULT: ", "ALL PASSED" if fails == 0 else "%d FAILED" % fails)

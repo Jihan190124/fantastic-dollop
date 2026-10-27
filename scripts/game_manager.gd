@@ -23,6 +23,10 @@ var day_stats := {}
 var achievements := {}
 var records: Array = []
 var _last_hour := -1
+var campaign: Dictionary = {}        # {"id": String, "left": days remaining}; empty = none running
+var today_event := "none"            # id from Data.EVENTS, or "none"
+var events_seen := 0
+var campaigns_run := 0
 
 func _ready() -> void:
 	load_settings()
@@ -58,7 +62,12 @@ func _reset_state() -> void:
 	Screenings.reset()
 	day = 1
 	reputation = Data.START_REPUTATION
-	stats = {"tickets": 0, "customers": 0, "food_items": 0, "best_profit": 0, "clean_day": false}
+	stats = {"tickets": 0, "customers": 0, "food_items": 0, "best_profit": 0, "clean_day": false,
+		"best_revenue": 0, "best_sat": 0.0, "profit_days": 0}
+	campaign = {}
+	today_event = "none"
+	events_seen = 0
+	campaigns_run = 0
 	achievements = {}
 	records = []
 	speed = 1
@@ -67,14 +76,18 @@ func new_game() -> void:
 	_reset_state()
 	litter_count = 8
 	in_game = true
-	begin_day()
+	begin_day("none")
 
-func begin_day() -> void:
+## ev: "__roll__" picks today's event at random; a saved id is restored without charging again.
+func begin_day(ev: String = "__roll__", restore: bool = false) -> void:
 	clock = Data.DAY_START_HOUR
 	phase = "prep"
 	_last_hour = -1
 	day_stats = {"arrived": 0, "served": 0, "tickets": 0, "sat_sum": 0.0, "sat_n": 0,
 		"rep_start": reputation, "walkouts": 0, "food_items": 0}
+	if ev == "__roll__":
+		ev = _roll_event()
+	_set_event(ev, not restore)
 	Screenings.generate_day()
 	day_started.emit(day)
 
@@ -94,8 +107,11 @@ func load_from(d: Dictionary) -> bool:
 		if st.has(k):
 			stats[k] = st[k]
 	achievements = Data.as_dict(g.get("achievements"))
+	campaign = Data.as_dict(g.get("campaign"))
+	events_seen = int(g.get("events_seen", 0))
+	campaigns_run = int(g.get("campaigns_run", 0))
 	records = []
-	begin_day()
+	begin_day(str(g.get("event", "none")), true)
 	clock = clampf(float(g.get("clock", Data.DAY_START_HOUR)), Data.DAY_START_HOUR, Data.FORCE_END_HOUR)
 	Screenings.generate_day(clock)
 	phase = "prep" if clock < Data.OPEN_HOUR else ("open" if clock < Data.CLOSE_HOUR else "closing")
@@ -104,7 +120,8 @@ func load_from(d: Dictionary) -> bool:
 
 func to_dict() -> Dictionary:
 	return {"day": day, "clock": clock, "reputation": reputation, "litter": litter_count,
-		"stats": stats, "achievements": achievements}
+		"stats": stats, "achievements": achievements, "campaign": campaign, "event": today_event,
+		"events_seen": events_seen, "campaigns_run": campaigns_run}
 
 # --- Simulation clock ----------------------------------------------------------------
 func tick(dt: float) -> void:
@@ -159,7 +176,8 @@ func arrival_rate() -> float:
 	var r := Screenings.avg_price() / fair_price()
 	var price_f := clampf(1.7 - 0.9 * r, 0.2, 1.4)
 	var weekend := 1.3 if (day - 1) % 7 >= 5 else 1.0
-	return base * hour_factor(clock) * halls * price_f * weekend * (1.0 + Upgrades.decor_demand())
+	return base * hour_factor(clock) * halls * price_f * weekend * (1.0 + Upgrades.decor_demand()) \
+		* (1.0 + campaign_boost()) * event_demand_mult()
 
 func rank_title() -> String:
 	var h := Upgrades.hall_count()
@@ -218,11 +236,16 @@ func top_advice() -> String:
 # --- Day end ---------------------------------------------------------------------------
 func end_day() -> Dictionary:
 	var halls := Upgrades.hall_count()
-	var elec := 200 + 100 * halls + 60 * (Upgrades.level("projector") + Upgrades.level("audio"))
-	var maint := 50 + 40 * halls + 30 * (Upgrades.level("seats") + Upgrades.level("lobby") + Upgrades.level("food"))
+	var elec := 200 + 100 * halls + Upgrades.power_draw()
+	var maint := 50 + 40 * halls + Upgrades.upkeep_total()
 	Economy.spend(Upgrades.daily_wages(), "Staff wages", "wages", true)
 	Economy.spend(elec, "Electricity bill", "electricity", true)
 	Economy.spend(maint, "Equipment maintenance", "maintenance", true)
+	stats.best_revenue = maxi(int(stats.best_revenue), Economy.income_sum())
+	if Economy.profit_today() > 0:
+		stats.profit_days = int(stats.profit_days) + 1
+	if int(day_stats.sat_n) >= 10:
+		stats.best_sat = maxf(float(stats.best_sat), float(day_stats.sat_sum) / int(day_stats.sat_n))
 	if cleanliness() > 0.9:
 		stats.clean_day = true
 	stats.best_profit = maxi(int(stats.best_profit), Economy.profit_today())
@@ -234,6 +257,7 @@ func end_day() -> Dictionary:
 		"rep_change": reputation - float(day_stats.rep_start), "cleanliness": cleanliness(),
 		"bankrupt": Economy.cash < Data.BANKRUPT_LIMIT, "advice": top_advice()}
 	var summary := Economy.archive_day(day, extra)
+	_tick_campaign()
 	day += 1
 	begin_day()
 	if settings.autosave and not summary.bankrupt:
@@ -257,6 +281,13 @@ func _cond(id: String) -> bool:
 		"clean_90": return bool(stats.clean_day)
 		"cash_100k": return Economy.cash >= 100000
 		"luxury": return rank_title() == "Luxury Cinema Complex"
+		"first_profit_day": return int(stats.profit_days) >= 1
+		"first_campaign": return campaigns_run >= 1
+		"revenue_20k": return int(stats.best_revenue) >= 20000
+		"sat_90": return float(stats.best_sat) >= 0.9
+		"premium_projector": return Upgrades.level("projector") >= 5
+		"vip_seats": return Upgrades.level("seats") >= 5
+		"survive_events": return events_seen >= 3
 	return false
 
 func check_achievements() -> void:
@@ -267,6 +298,89 @@ func check_achievements() -> void:
 				Economy.earn(int(a.reward), "Achievement: %s" % a.name, "bonus")
 			toast.emit("Achievement: %s" % a.name, Color(1.0, 0.85, 0.3))
 			achievement_unlocked.emit(a.id)
+
+# --- Business events -------------------------------------------------------------------
+func _roll_event() -> String:
+	if day < 2 or randf() > 0.3:
+		return "none"
+	return str(Data.EVENTS[randi() % Data.EVENTS.size()].id)
+
+## fresh = true at the start of a real day (charges and announces); false when restoring a save.
+func _set_event(ev: String, fresh: bool) -> void:
+	today_event = ev
+	if ev == "none":
+		return
+	if fresh:
+		events_seen += 1
+		var cost := int(event_def().get("cost", 0))
+		if ev == "breakdown":
+			if Upgrades.staff_count("technician") > 0:
+				cost = cost / 2
+			Economy.spend(cost, "Repair: projector breakdown", "maintenance", true)
+		toast.emit("Today: %s" % event_def().get("name", ""), Color(1.0, 0.85, 0.4))
+
+func event_def() -> Dictionary:
+	for e in Data.EVENTS:
+		if e.id == today_event:
+			return e
+	return {}
+
+func event_demand_mult() -> float:
+	return float(event_def().get("demand", 1.0))
+
+func event_food_mult() -> float:
+	return float(event_def().get("food", 1.0))
+
+# --- Marketing campaigns -----------------------------------------------------------------
+func _campaign_by_id(id: String) -> Dictionary:
+	for c in Data.CAMPAIGNS:
+		if c.id == id:
+			return c
+	return {}
+
+func campaign_def() -> Dictionary:
+	return _campaign_by_id(str(campaign.get("id", "")))
+
+func campaign_boost() -> float:
+	if campaign.is_empty():
+		return 0.0
+	return float(campaign_def().get("boost", 0.0))
+
+func campaign_target() -> String:
+	if campaign.is_empty():
+		return ""
+	return str(campaign_def().get("target", ""))
+
+func campaign_check(id: String) -> String:
+	if not campaign.is_empty():
+		return "A campaign is already running"
+	var d := _campaign_by_id(id)
+	if d.is_empty():
+		return "Unknown campaign"
+	if Upgrades.hall_count() < int(d.get("min_halls", 1)):
+		return "Needs %d halls open" % int(d.min_halls)
+	if Economy.cash < int(d.cost):
+		return "Not enough cash"
+	return ""
+
+func start_campaign(id: String) -> bool:
+	if campaign_check(id) != "":
+		return false
+	var d := _campaign_by_id(id)
+	if not Economy.spend(int(d.cost), "Marketing: %s" % d.name, "marketing"):
+		return false
+	campaign = {"id": id, "left": int(d.days)}
+	campaigns_run += 1
+	toast.emit("Campaign launched: %s" % d.name, Color(0.6, 0.9, 1.0))
+	return true
+
+func _tick_campaign() -> void:
+	if campaign.is_empty():
+		return
+	campaign.left = int(campaign.left) - 1
+	if int(campaign.left) <= 0:
+		toast.emit("Campaign finished: %s" % campaign_def().get("name", ""), Color(0.8, 0.8, 1.0))
+		campaign = {}
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:

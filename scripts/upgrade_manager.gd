@@ -16,7 +16,9 @@ func reset() -> void:
 	decor = {}
 	hall_state = ["built", "locked", "locked"]
 	build_left = {}
-	staff = {"cashier": 1, "server": 0, "cleaner": 0}
+	staff = {}
+	for r in Data.STAFF:
+		staff[r] = 1 if r == "cashier" else 0
 
 func level(track: String) -> int:
 	return int(levels.get(track, 0))
@@ -26,6 +28,17 @@ func level_data(track: String) -> Dictionary:
 
 func quality(track: String) -> float:
 	return float(level_data(track).q)
+
+## Daily upkeep of every installed tier (seats, lobby, food, projector).
+func upkeep_total() -> int:
+	var t := 0
+	for track in Data.TRACK_ORDER:
+		t += int(level_data(track).get("maint", 0))
+	return t
+
+## Daily electricity of projector and audio tiers.
+func power_draw() -> int:
+	return int(level_data("projector").get("power", 0)) + int(level_data("audio").get("power", 0))
 
 func next_level(track: String) -> Dictionary:
 	var lv: Array = Data.TRACKS[track].levels
@@ -38,6 +51,11 @@ func check_buy(track: String) -> String:
 		return "Maxed out"
 	if Game.reputation < float(nxt.rep):
 		return "Needs reputation %d" % int(nxt.rep)
+	var req: Dictionary = nxt.get("req", {})
+	if req.has("halls") and hall_count() < int(req.halls):
+		return "Needs %d halls open" % int(req.halls)
+	if req.has("seats") and level("seats") < int(req.seats):
+		return "Needs %s seating" % Data.TRACKS.seats.levels[int(req.seats)].name
 	if Economy.cash < int(nxt.cost):
 		return "Not enough cash"
 	return ""
@@ -135,6 +153,8 @@ func check_hire(role: String) -> String:
 		return "Team is full"
 	if role == "server" and level("food") < 1:
 		return "Build a food stand first"
+	if role == "technician" and level("projector") < 2:
+		return "Needs a Full HD projector"
 	if Economy.cash < int(d.hire):
 		return "Not enough cash"
 	return ""

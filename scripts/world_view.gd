@@ -10,7 +10,7 @@ func _r(x: float, y: float, w: float, h: float) -> Rect2:
 
 func screen_rect(hi: int) -> Rect2:
 	var r: Rect2i = Data.HALLS[hi].rect
-	var cells: float = [6.0, 7.0, 9.0, 11.0][Upgrades.level("projector")]
+	var cells: float = float(Upgrades.level_data("projector").get("cells", 6))
 	var cx: float = r.position.x + r.size.x * 0.5
 	return Rect2((cx - cells * 0.5) * C, r.position.y * C + 8, cells * C, 1.5 * C)
 
@@ -169,23 +169,24 @@ func _draw_hall(i: int) -> void:
 	# screen frame
 	var sr := screen_rect(i)
 	var lvl: int = Upgrades.level("projector")
-	draw_rect(sr.grow(6), [Color(0.3, 0.3, 0.3), Color(0.35, 0.4, 0.55), Color(0.2, 0.3, 0.6), Color(0.85, 0.7, 0.3)][lvl])
+	var fc: Array = Upgrades.level_data("projector").get("frame", [0.3, 0.3, 0.3])
+	draw_rect(sr.grow(6), Color(float(fc[0]), float(fc[1]), float(fc[2])))
 	draw_rect(sr, Color(0.05, 0.05, 0.08))
 	# speakers
 	var al: int = Upgrades.level("audio")
-	var sp: int = [2, 4, 6][al]
+	var sp: int = int(Upgrades.level_data("audio").get("spk", 2))
 	for k in sp:
 		var sx: float = rp.position.x + 10 + k * (rp.size.x - 40) / maxf(1.0, sp - 1.0)
 		draw_rect(Rect2(sx, rp.position.y + 2, 14, 20 + al * 4), Color(0.1, 0.1, 0.12))
 		draw_circle(Vector2(sx + 7, rp.position.y + 12), 4, Color(0.4, 0.4, 0.45))
 	# seats
-	var sl: int = Upgrades.level("seats")
+	var sl: int = int(Upgrades.level_data("seats").get("look", 0))
 	for s in Data.hall_seats(i):
 		var c := Data.cell_center(s.cell)
 		_draw_seat(c, sl)
 
-func _draw_seat(c: Vector2, lvl: int) -> void:
-	match lvl:
+func _draw_seat(c: Vector2, look: int) -> void:
+	match look:
 		0:
 			draw_rect(Rect2(c + Vector2(-11, -8), Vector2(22, 16)), Color(0.6, 0.6, 0.64))
 			draw_rect(Rect2(c + Vector2(-11, 6), Vector2(22, 5)), Color(0.45, 0.45, 0.5))
@@ -193,11 +194,29 @@ func _draw_seat(c: Vector2, lvl: int) -> void:
 			draw_rect(Rect2(c + Vector2(-12, -9), Vector2(24, 18)), Color(0.72, 0.2, 0.2))
 			draw_rect(Rect2(c + Vector2(-12, 6), Vector2(24, 7)), Color(0.5, 0.12, 0.12))
 		2:
+			draw_rect(Rect2(c + Vector2(-13, -9), Vector2(26, 19)), Color(0.72, 0.22, 0.26))
+			draw_rect(Rect2(c + Vector2(-13, 7), Vector2(26, 6)), Color(0.45, 0.12, 0.16))
+		3:
 			draw_rect(Rect2(c + Vector2(-15, -10), Vector2(30, 21)), Color(0.5, 0.1, 0.15))
 			draw_rect(Rect2(c + Vector2(-11, -8), Vector2(22, 14)), Color(0.7, 0.18, 0.22))
 			draw_rect(Rect2(c + Vector2(-15, 8), Vector2(30, 5)), Color(0.35, 0.07, 0.1))
-		_:
+		4:
+			draw_rect(Rect2(c + Vector2(-20, -9), Vector2(40, 19)), Color(0.45, 0.2, 0.55))
+			draw_rect(Rect2(c + Vector2(-18, -7), Vector2(17, 14)), Color(0.6, 0.35, 0.7))
+			draw_rect(Rect2(c + Vector2(1, -7), Vector2(17, 14)), Color(0.6, 0.35, 0.7))
+			draw_rect(Rect2(c + Vector2(-20, 8), Vector2(40, 5)), Color(0.3, 0.12, 0.38))
+		5:
 			draw_rect(Rect2(c + Vector2(-16, -11), Vector2(32, 23)), Color(0.12, 0.1, 0.09))
 			draw_rect(Rect2(c + Vector2(-12, -8), Vector2(24, 15)), Color(0.2, 0.16, 0.14))
 			draw_rect(Rect2(c + Vector2(-16, -11), Vector2(32, 2)), Color(0.9, 0.75, 0.3))
 			draw_rect(Rect2(c + Vector2(-16, 9), Vector2(32, 2)), Color(0.9, 0.75, 0.3))
+		6:
+			draw_rect(Rect2(c + Vector2(-16, -12), Vector2(32, 24)), Color(0.22, 0.14, 0.08))
+			draw_rect(Rect2(c + Vector2(-12, -9), Vector2(24, 16)), Color(0.36, 0.24, 0.14))
+			draw_rect(Rect2(c + Vector2(-16, -12), Vector2(3, 24)), Color(0.9, 0.75, 0.3))
+			draw_rect(Rect2(c + Vector2(13, -12), Vector2(3, 24)), Color(0.9, 0.75, 0.3))
+		_:
+			draw_circle(c, 17.0, Color(0.5, 0.2, 1.0, 0.35))
+			draw_rect(Rect2(c + Vector2(-14, -10), Vector2(28, 20)), Color(0.07, 0.07, 0.09))
+			draw_rect(Rect2(c + Vector2(-10, -7), Vector2(20, 14)), Color(0.15, 0.12, 0.2))
+			draw_rect(Rect2(c + Vector2(-14, -10), Vector2(28, 2)), Color(0.4, 0.9, 1.0))
